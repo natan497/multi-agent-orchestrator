@@ -11,6 +11,8 @@ changes (*"Anthropic-ready"*).
 > provider-agnostic interface, with schema-driven tool calling, a re-planning loop, and
 > rate-limit-aware retry/backoff — running entirely on free-tier infrastructure.
 
+![Demo: the orchestrator planning, calling tools, and answering across three tasks](docs/demo.gif)
+
 ## Architecture
 
 ```mermaid
@@ -87,8 +89,7 @@ implement `run`) and registering it.
 ╰─────────────────────────────────────────────────────────────────╯
 ```
 
-> **Demo GIF:** record a 60–90s run of `python examples/demo_tasks.py` (the `rich` output
-> shines) and embed it here — e.g. `![demo](docs/demo.gif)`.
+See the [demo GIF](#multi-agent-orchestrator) above for a full live run.
 
 ## Evals
 
@@ -111,6 +112,11 @@ Set in `.env` (see `.env.example`):
 | `PLANNER_MODEL` | `openai/gpt-oss-120b` | Larger reasoning model. |
 | `EXECUTOR_MODEL` | `llama-3.1-8b-instant` | Fast tool-calling model. |
 | `MAX_ITERATIONS` / `MAX_TOOL_CALLS` / `MAX_RETRIES_PER_STEP` | `10` / `20` / `2` | Guardrails. |
+
+> **Tip:** the small default executor (`llama-3.1-8b-instant`) occasionally emits a malformed
+> tool call that Groq rejects (`tool_use_failed`); the orchestrator retries and recovers
+> automatically. For even more reliable tool calling at higher token cost, set
+> `EXECUTOR_MODEL=llama-3.3-70b-versatile`.
 
 ## Development
 
