@@ -184,6 +184,13 @@ def test_wait_honors_retry_after():
     assert GroqProvider._wait(state) == 7.0
 
 
+def test_wait_caps_absurd_retry_after():
+    # A daily-quota 429 may carry a huge retry-after; we cap it so we don't appear to hang.
+    err = RateLimitError("daily limit", retry_after=3600.0)
+    state = SimpleNamespace(outcome=SimpleNamespace(exception=lambda: err), attempt_number=1)
+    assert GroqProvider._wait(state) == 60.0
+
+
 def test_default_client_does_not_override_base_url(monkeypatch):
     """Regression: the native groq SDK already targets /openai/v1, so passing base_url
     would double the path (…/openai/v1/openai/v1/chat/completions -> 404)."""

@@ -57,8 +57,8 @@ DEFAULT_CASES: list[EvalCase] = [
     EvalCase(
         name="calc_compare",
         goal="Is 17 * 23 greater than 400? Answer yes or no.",
-        check=answer_contains("yes"),
-        description="Calculator plus a reasoning step (391 < 400 -> no... 17*23=391).",
+        check=answer_contains("no"),  # 17*23 = 391, which is not > 400
+        description="Calculator plus a reasoning step (391 < 400, so the answer is 'no').",
     ),
     EvalCase(
         name="weather_city",
@@ -144,12 +144,15 @@ def run_evals(
     delay_s: float = 0.0,
     sleep: Callable[[float], None] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
+    on_start: Callable[[EvalCase], None] | None = None,
     on_result: Callable[[CaseResult], None] | None = None,
 ) -> EvalReport:
     """Run each case via ``run_fn`` and check its outcome.
 
     Stops spending once cumulative tokens would exceed ``token_budget`` (remaining cases are
     marked skipped) — a stand-in for respecting the free tier's daily/per-minute caps.
+
+    ``on_start`` / ``on_result`` fire before/after each case so callers can stream progress.
     """
     cases = cases or DEFAULT_CASES
     report = EvalReport()
@@ -170,6 +173,9 @@ def run_evals(
 
         if i > 0 and delay_s > 0:
             sleep(delay_s)  # gentle inter-case pacing to stay under per-minute caps
+
+        if on_start is not None:
+            on_start(case)
 
         start = monotonic()
         try:
@@ -231,8 +237,25 @@ def main() -> int:
     registry.register_all(default_tools())
     orchestrator = Orchestrator.from_config(config, registry)
 
-    console.print(f"[dim]Running {len(DEFAULT_CASES)} eval cases…[/]")
-    report = run_evals(orchestrator.run, delay_s=2.0)
+    total = len(DEFAULT_CASES)
+    console.print(
+        f"[dim]Running {total} eval cases (sequential, ~2s pacing between each; "
+        f"this can take 1–2 minutes)…[/]\n"
+    )
+
+    counter = {"n": 0}
+
+    def on_start(case: EvalCase) -> None:
+        counter["n"] += 1
+        console.print(f"[dim]({counter['n']}/{total})[/] ▶ {case.name}: {case.goal}")
+
+    def on_result(r: CaseResult) -> None:
+        mark = "[green]✓[/]" if r.passed else "[red]✗[/]"
+        detail = (r.final_answer or r.stop_reason or r.error or "")[:70]
+        console.print(f"    {mark} {r.tool_calls} tools · {r.elapsed_s:.1f}s · {detail}")
+
+    report = run_evals(orchestrator.run, delay_s=2.0, on_start=on_start, on_result=on_result)
+    console.print()
 
     table = Table(title="Eval results")
     for col in ("case", "pass", "tools", "iters", "tokens", "time", "answer"):

@@ -90,3 +90,17 @@ def test_delay_paces_between_cases():
     )
     # One delay between the two cases (not before the first).
     assert slept == [2.0]
+
+
+def test_on_start_and_on_result_fire_per_case():
+    cases = [_case("a", answer_contains("x")), _case("b", answer_contains("x"))]
+    started: list[str] = []
+    finished: list[str] = []
+    run_evals(
+        lambda g: make_result(answer="x"),
+        cases,
+        on_start=lambda c: started.append(c.name),
+        on_result=lambda r: finished.append(r.name),
+    )
+    assert started == ["a", "b"]
+    assert finished == ["a", "b"]
