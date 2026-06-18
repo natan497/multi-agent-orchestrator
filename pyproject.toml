@@ -26,15 +26,15 @@ dev = [
     "ruff>=0.5",
 ]
 
-[project.scripts]
-orchestrator-demo = "examples.demo_tasks:main"
-
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# Repo root on the path so tests can import the examples/ demo (not an installed package).
+pythonpath = ["."]
+# Live tests (real network/API) are deselected by default; run them with: pytest -m live
+addopts = "-q -m 'not live'"
 # Live tests that hit a real provider are opt-in and skipped unless explicitly selected.
 markers = [
     "live: hits a real LLM/API endpoint; requires GROQ_API_KEY (deselected by default)",
