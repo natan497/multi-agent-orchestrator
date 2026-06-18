@@ -25,6 +25,9 @@ from tenacity import Retrying, retry_if_exception_type, stop_after_attempt
 from orchestrator.models import Completion, Message, ToolCall, ToolSpec, Usage
 from providers.base import LLMProvider, ProviderError, RateLimitError, ToolFormatError
 
+# Groq's OpenAI-compatible base URL. Note: the native `groq` SDK already targets this and
+# appends `/openai/v1/chat/completions` itself, so we do NOT pass it as base_url (doing so
+# would double the path). It's kept here for reference / for use with the OpenAI SDK.
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 # Exponential backoff parameters (seconds) used when a 429 carries no retry-after.
@@ -58,10 +61,7 @@ class GroqProvider(LLMProvider):
         if self._client is None:
             import groq
 
-            self._client = groq.Groq(
-                api_key=self._api_key or os.getenv("GROQ_API_KEY"),
-                base_url=GROQ_BASE_URL,
-            )
+            self._client = groq.Groq(api_key=self._api_key or os.getenv("GROQ_API_KEY"))
         return self._client
 
     # ------------------------------------------------------------------ #
