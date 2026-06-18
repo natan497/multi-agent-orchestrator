@@ -1,6 +1,6 @@
 # SPEC — Multi-Agent Task Orchestrator
 
-**Status:** draft for approval · **Owner:** natan497 · **Runtime cost:** $0 (Groq free tier)
+**Status:** implemented (all phases 0–6 merged) · **Owner:** natan497 · **Runtime cost:** $0 (Groq free tier)
 
 ## 1. Summary
 
