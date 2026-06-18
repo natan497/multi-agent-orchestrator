@@ -175,6 +175,7 @@ class RunTrace(BaseModel):
 class OrchestratorConfig(BaseModel):
     """Resolved runtime configuration. Env loading lives in ``config.py`` (Phase 2)."""
 
+    provider: str = "groq"
     planner_model: str = "openai/gpt-oss-120b"
     executor_model: str = "llama-3.1-8b-instant"
     max_iterations: int = 10
