@@ -115,11 +115,15 @@ Set in `.env` (see `.env.example`):
 ## Development
 
 ```bash
-pytest                 # unit tests (fully mocked; no API key needed)
-pytest -m live         # opt-in tests against real Open-Meteo + Wikipedia
+pytest                              # unit tests (fully mocked; no API key needed)
+pytest -m live                      # opt-in live tests against real Open-Meteo + Wikipedia
+GROQ_API_KEY=... pytest -m live tests/test_live_groq.py   # live Groq smoke (chat, tool call, full loop)
 ruff check src tests examples
 ruff format src tests examples
 ```
+
+Live tests are skipped unless explicitly selected; the Groq smoke tests additionally skip
+when `GROQ_API_KEY` is unset, so the default suite stays green with no credentials.
 
 ```
 src/orchestrator/   models, config, planner, executor, state, orchestrator
