@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multi-agent-orchestrator"
+version = "0.1.0"
+description = "A planner/executor multi-agent task orchestrator on Groq's free tier, behind a provider-agnostic LLM interface (Anthropic-ready)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "natan497" }]
+dependencies = [
+    "groq>=0.11",
+    "pydantic>=2.7",
+    "tenacity>=8.3",
+    "rich>=13.7",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-mock>=3.14",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+orchestrator-demo = "examples.demo_tasks:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Live tests that hit a real provider are opt-in and skipped unless explicitly selected.
+markers = [
+    "live: hits a real LLM/API endpoint; requires GROQ_API_KEY (deselected by default)",
+]
+
+[tool.ruff]
+src = ["src", "tests", "examples"]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
