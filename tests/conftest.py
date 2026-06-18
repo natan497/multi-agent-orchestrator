@@ -9,7 +9,7 @@ from providers.base import LLMProvider
 class ScriptedProvider(LLMProvider):
     """Returns pre-built Completions in order; records each call's messages/tools."""
 
-    def __init__(self, completions: list[Completion]) -> None:
+    def __init__(self, completions: list[Completion | Exception]) -> None:
         super().__init__("scripted")
         self._completions = list(completions)
         self.calls: list[tuple] = []
@@ -18,7 +18,10 @@ class ScriptedProvider(LLMProvider):
         self.calls.append((messages, tools))
         if not self._completions:
             raise AssertionError("ScriptedProvider ran out of scripted completions")
-        return self._completions.pop(0)
+        item = self._completions.pop(0)
+        if isinstance(item, Exception):  # script provider failures too
+            raise item
+        return item
 
 
 def text_completion(text: str, *, tokens: int = 10) -> Completion:
