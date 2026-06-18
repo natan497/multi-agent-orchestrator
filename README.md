@@ -100,6 +100,12 @@ and token usage, with token-budget guarding for the free tier:
 python examples/eval_harness.py
 ```
 
+It streams each case as it runs and prints a summary table at the end. The cases run
+sequentially with ~2s pacing between them, so a full run takes roughly **1–4 minutes** on
+the free tier (longer cases involve multiple tool calls and the occasional retry). Pass
+rates vary run-to-run because the free models are non-deterministic — it's a smoke/quality
+signal, not a strict grader.
+
 ## Configuration
 
 Set in `.env` (see `.env.example`):

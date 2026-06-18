@@ -33,6 +33,9 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 # Exponential backoff parameters (seconds) used when a 429 carries no retry-after.
 _BACKOFF_BASE = 0.5
 _BACKOFF_CAP = 30.0
+# Cap how long we'll honor a `retry-after`. A daily-quota 429 can carry a huge value
+# (minutes/hours); we'd rather retry sooner and fail fast than appear to hang.
+_MAX_RETRY_AFTER = 60.0
 
 
 class _RetryableProviderError(ProviderError):
@@ -180,7 +183,7 @@ class GroqProvider(LLMProvider):
         """Honor ``retry-after`` on 429; otherwise exponential backoff with jitter."""
         exc = retry_state.outcome.exception()
         if isinstance(exc, RateLimitError) and exc.retry_after is not None:
-            return exc.retry_after
+            return min(exc.retry_after, _MAX_RETRY_AFTER)
         attempt = retry_state.attempt_number
         return min(_BACKOFF_CAP, _BACKOFF_BASE * (2 ** (attempt - 1))) + random.uniform(0, 0.25)
 
