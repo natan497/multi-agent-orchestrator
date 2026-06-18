@@ -40,6 +40,7 @@ def load_config(*, dotenv: bool = True) -> OrchestratorConfig:
         executor_model=os.getenv("EXECUTOR_MODEL", "llama-3.1-8b-instant"),
         max_iterations=_get_int("MAX_ITERATIONS", 10),
         max_tool_calls=_get_int("MAX_TOOL_CALLS", 20),
+        max_retries_per_step=_get_int("MAX_RETRIES_PER_STEP", 2),
         anthropic_enabled=bool(os.getenv("ANTHROPIC_API_KEY")),
     )
 

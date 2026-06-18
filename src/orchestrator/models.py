@@ -180,4 +180,5 @@ class OrchestratorConfig(BaseModel):
     executor_model: str = "llama-3.1-8b-instant"
     max_iterations: int = 10
     max_tool_calls: int = 20
+    max_retries_per_step: int = 2
     anthropic_enabled: bool = False
