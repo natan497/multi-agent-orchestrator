@@ -8,6 +8,7 @@ from orchestrator.models import OrchestratorConfig
 from orchestrator.orchestrator import Orchestrator
 from orchestrator.planner import Planner
 from orchestrator.state import Pacer
+from providers.base import ProviderError, RateLimitError
 from tools.builtins.calculator import Calculator
 from tools.registry import ToolRegistry
 
@@ -110,6 +111,38 @@ def test_retry_cap_guardrail():
     result = orch.run("g")
     assert not result.success
     assert "retry limit" in result.stop_reason
+
+
+def test_executor_provider_error_becomes_failed_observation():
+    # A non-rate-limit provider error (e.g. a model's malformed tool call that exhausted
+    # retries) should not abort the run: it becomes a failed observation the planner acts on.
+    planner_texts = [
+        '{"steps": [{"description": "do it", "tool": "weather"}]}',
+        '{"decision": "done", "final_answer": "recovered"}',
+    ]
+    registry = ToolRegistry()
+    registry.register(Calculator())
+    planner = Planner(ScriptedProvider([text_completion(t) for t in planner_texts]))
+    executor = Executor(ScriptedProvider([ProviderError("tool_use_failed")]))
+    orch = Orchestrator(planner, executor, registry, OrchestratorConfig(), pacer=Pacer(0))
+
+    result = orch.run("weather please")
+    assert result.success
+    assert result.final_answer == "recovered"
+    obs = [e for e in result.trace.events if e.kind == "error" and e.data["stage"] == "execute"]
+    assert obs  # the executor failure was recorded but did not abort the run
+
+
+def test_executor_rate_limit_aborts_run():
+    planner = Planner(ScriptedProvider([text_completion('{"steps": [{"description": "x"}]}')]))
+    executor = Executor(ScriptedProvider([RateLimitError("429")]))
+    registry = ToolRegistry()
+    registry.register(Calculator())
+    orch = Orchestrator(planner, executor, registry, OrchestratorConfig(), pacer=Pacer(0))
+
+    result = orch.run("g")
+    assert not result.success
+    assert result.stop_reason.startswith("rate limited")
 
 
 def test_planning_failure_ends_run_gracefully():

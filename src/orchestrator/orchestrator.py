@@ -20,7 +20,7 @@ from orchestrator.models import (
 )
 from orchestrator.planner import Planner, PlannerError
 from orchestrator.state import Pacer, RunResult
-from providers.base import ProviderError
+from providers.base import ProviderError, RateLimitError
 from tools.registry import ToolRegistry
 
 
@@ -83,34 +83,45 @@ class Orchestrator:
             step = plan.steps[step_index]
             step.status = StepStatus.RUNNING
 
+            # Rate limits are fatal (retrying would just hit the cap again); other provider
+            # errors (e.g. a model's malformed tool call) become a failed observation so the
+            # planner can react — one bad step shouldn't abort the whole run.
+            ex = None
+            exec_error: ProviderError | None = None
             try:
                 ex = self.executor.execute(goal, step, specs)
+            except RateLimitError as e:
+                trace.add("error", stage="execute", message=str(e))
+                return self._stopped(trace, goal, f"rate limited: {e}", iterations, tool_calls)
             except ProviderError as e:
                 trace.add("error", stage="execute", message=str(e))
-                return self._stopped(
-                    trace, goal, f"executor provider error: {e}", iterations, tool_calls
-                )
-            self._account(trace, ex.usage)
+                exec_error = e
 
-            if ex.called_tool:
-                if tool_calls >= self.config.max_tool_calls:
-                    return self._stopped(
-                        trace, goal, "reached max_tool_calls", iterations, tool_calls
-                    )
-                tool_calls += 1
-                trace.add("tool_call", name=ex.tool_call.name, arguments=ex.tool_call.arguments)
-                result = self.registry.dispatch(ex.tool_call)
+            if exec_error is not None:
                 observation = Observation(
-                    step_index=step_index,
-                    tool_call=ex.tool_call,
-                    output=result.output,
-                    ok=result.ok,
-                    error=result.error,
+                    step_index=step_index, ok=False, error=f"executor failed: {exec_error}"
                 )
-                trace.add("observation", ok=result.ok, output=result.output, error=result.error)
             else:
-                observation = Observation(step_index=step_index, output=ex.text or "", ok=True)
-                trace.add("executor_text", text=ex.text)
+                self._account(trace, ex.usage)
+                if ex.called_tool:
+                    if tool_calls >= self.config.max_tool_calls:
+                        return self._stopped(
+                            trace, goal, "reached max_tool_calls", iterations, tool_calls
+                        )
+                    tool_calls += 1
+                    trace.add("tool_call", name=ex.tool_call.name, arguments=ex.tool_call.arguments)
+                    result = self.registry.dispatch(ex.tool_call)
+                    observation = Observation(
+                        step_index=step_index,
+                        tool_call=ex.tool_call,
+                        output=result.output,
+                        ok=result.ok,
+                        error=result.error,
+                    )
+                    trace.add("observation", ok=result.ok, output=result.output, error=result.error)
+                else:
+                    observation = Observation(step_index=step_index, output=ex.text or "", ok=True)
+                    trace.add("executor_text", text=ex.text)
             observations.append(observation)
 
             try:

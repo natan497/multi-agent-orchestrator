@@ -200,6 +200,11 @@ class GroqProvider(LLMProvider):
         transient_names = {"APIConnectionError", "APITimeoutError", "InternalServerError"}
         if (isinstance(status, int) and status >= 500) or name in transient_names:
             return _RetryableProviderError(str(exc) or "transient provider error")
+        # Groq returns a 400 `tool_use_failed` when a (usually smaller) model emits a
+        # malformed tool call. It's non-deterministic, so retrying often yields a valid
+        # call — treat it as transient rather than fatal.
+        if "tool_use_failed" in str(exc) or "Failed to call a function" in str(exc):
+            return _RetryableProviderError(str(exc) or "tool_use_failed")
         return ProviderError(str(exc) or "provider error")
 
 
