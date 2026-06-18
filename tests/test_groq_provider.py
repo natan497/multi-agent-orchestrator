@@ -18,8 +18,8 @@ from providers.groq_provider import GroqProvider
 class FakeError(Exception):
     """Stand-in for a Groq SDK status error (duck-typed status_code + response)."""
 
-    def __init__(self, status_code, headers=None, name=None):
-        super().__init__(f"HTTP {status_code}")
+    def __init__(self, status_code, headers=None, name=None, message=None):
+        super().__init__(message or f"HTTP {status_code}")
         self.status_code = status_code
         self.response = SimpleNamespace(headers=headers or {})
         if name:
@@ -162,6 +162,20 @@ def test_non_retryable_error_is_not_retried():
         p.complete([Message(role="user", content="hi")])
     assert not isinstance(ei.value, RateLimitError)
     assert len(p.client.calls) == 1
+
+
+def test_tool_use_failed_is_retried():
+    # Groq returns a 400 with code 'tool_use_failed' when a model emits a malformed
+    # tool call; it's non-deterministic, so we retry rather than abort.
+    err = FakeError(
+        400,
+        message="Failed to call a function ... 'code': 'tool_use_failed', "
+        "'failed_generation': '<function=weather>{\"location\": \"Denver\"}}'",
+    )
+    p = provider([err, make_response(content="recovered")])
+    out = p.complete([Message(role="user", content="weather in Denver")])
+    assert out.text == "recovered"
+    assert len(p.client.calls) == 2
 
 
 def test_wait_honors_retry_after():
