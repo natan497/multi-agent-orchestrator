@@ -32,6 +32,13 @@ def test_answer_contains_requires_success():
     assert not check(make_result(success=True, answer=None))
 
 
+def test_answer_contains_ignores_thousands_separators():
+    # The model may render numbers with commas; a bare numeric needle should still match.
+    check = answer_contains("7006652")
+    assert check(make_result(answer="The product is 7,006,652."))
+    assert check(make_result(answer="7006652"))
+
+
 def _case(name, check):
     return EvalCase(name=name, goal=name, check=check)
 

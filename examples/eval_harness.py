@@ -10,6 +10,7 @@ any API key. ``main()`` wires the real Groq-backed orchestrator and prints a ric
 from __future__ import annotations
 
 import os
+import re
 import time
 from collections.abc import Callable
 
@@ -35,16 +36,28 @@ class EvalCase(BaseModel):
 
 
 def answer_contains(*needles: str, case_sensitive: bool = False) -> Check:
-    """A check that passes when the run succeeded and the answer contains all needles."""
+    """A check that passes when the run succeeded and the answer contains all needles.
+
+    Thousands-separator commas between digits are stripped first, so a numeric needle like
+    ``"7006652"`` still matches an answer rendered as ``"7,006,652"``.
+    """
 
     def _check(result: RunResult) -> bool:
         if not result.success or not result.final_answer:
             return False
-        answer = result.final_answer if case_sensitive else result.final_answer.lower()
-        terms = needles if case_sensitive else [n.lower() for n in needles]
+        answer = _normalize(result.final_answer, case_sensitive)
+        terms = [_normalize(n, case_sensitive) for n in needles]
         return all(term in answer for term in terms)
 
     return _check
+
+
+_DIGIT_GROUP_RE = re.compile(r"(?<=\d),(?=\d)")
+
+
+def _normalize(text: str, case_sensitive: bool) -> str:
+    text = _DIGIT_GROUP_RE.sub("", text)  # 7,006,652 -> 7006652
+    return text if case_sensitive else text.lower()
 
 
 DEFAULT_CASES: list[EvalCase] = [
