@@ -168,3 +168,21 @@ def test_wait_honors_retry_after():
     err = RateLimitError("limited", retry_after=7.0)
     state = SimpleNamespace(outcome=SimpleNamespace(exception=lambda: err), attempt_number=1)
     assert GroqProvider._wait(state) == 7.0
+
+
+def test_default_client_does_not_override_base_url(monkeypatch):
+    """Regression: the native groq SDK already targets /openai/v1, so passing base_url
+    would double the path (…/openai/v1/openai/v1/chat/completions -> 404)."""
+    import groq
+
+    captured = {}
+
+    def fake_groq(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(groq, "Groq", fake_groq)
+    p = GroqProvider("m", api_key="test-key")
+    _ = p.client  # triggers lazy construction
+    assert "base_url" not in captured
+    assert captured.get("api_key") == "test-key"
